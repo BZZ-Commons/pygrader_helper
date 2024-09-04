@@ -31,3 +31,10 @@ Using a list from list_all_repos_in_org_with_filter.py
 Converts a single repository from the old pygrader format (2023) to the new pygrader format (2024).
 Using a GUI Project selector.
 
+
+### batch_delete_repos.py
+Deletes a batch of repositories.
+Make sure to run 'gh auth refresh -h github.com -s delete_repo'
+to add permission to delete repositories via cli.
+
+Using a list from list_all_repos_in_org_with_filter.py
