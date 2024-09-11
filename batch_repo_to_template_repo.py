@@ -1,30 +1,28 @@
 import subprocess
+from dotenv import load_dotenv
+import os
 
-def transfer_repos(repo_list, current_owner, new_owner):
-    """
-    Transfers a list of repositories from one owner to another using the GitHub CLI.
 
-    Parameters:
-    repo_list (list): List of repository names to be transferred.
-    current_owner (str): Current owner of the repositories.
-    new_owner (str): New owner of the repositories.
+def make_repo_template(org_name, repo_name):
+    """Set the repository as a template using GitHub CLI."""
+    repo_full_name = f'{org_name}/{repo_name}'
+    print(f"Setting {repo_full_name} as a template repository")
 
-    Returns:
-    None
-    """
-    for repo in repo_list:
-        command = f'gh api repos/{current_owner}/{repo}/transfer -f new_owner={new_owner}'
-        try:
-            print(f'Transferring repo {repo} from {current_owner} to {new_owner}')
-            subprocess.run(command, shell=True, check=True)
-            print(f'Successfully transferred {repo}')
-        except subprocess.CalledProcessError as e:
-            print(f'Failed to transfer {repo}: {e}')
+    # Use GitHub CLI to edit the repository and set it as a template
+    subprocess.run(['gh', 'repo', 'edit', repo_full_name, '--template'])
 
-if __name__ == '__main__':
-    # List of repositories to transfer
-    repos_to_transfer = [
-        "m319-lu04-a01-classroom",
+
+def make_repos_templates(org_name, repo_names):
+    """Convert a list of repositories into template repositories."""
+    for repo_name in repo_names:
+        print(f"Processing repository: {repo_name}")
+        make_repo_template(org_name, repo_name)
+
+
+def main():
+    # Beispielorganisation und Repository-Liste
+    org_name = 'templates-python'
+    repo_names = [
         "m319-lu05-a02-larger",
         "m319-lu06-a03-lists",
         "m319-lu06-a01-simplelist",
@@ -50,12 +48,9 @@ if __name__ == '__main__':
         "m319-lu04-a02-conversation",
         "m319-lu04-a03-story",
         "m319-lu04-a04-multiplicator",
-        "m319-lu04-a00-first",
         "m319-lu08-a01-syntaxfehler-1",
         "m319-lu08-a02-syntaxfehler-2",
         "m319-lu08-a03-logikfehler",
-        "m319-lb01-primes",
-        "m319-lb01-words",
         "m319-lu09-a01-first-functions",
         "m319-lu09-a02-define-functions",
         "m319-lu09-a03-advanced-functions",
@@ -78,17 +73,19 @@ if __name__ == '__main__':
         "m319-lu20-a01-library",
         "m319-lu20-a02-library-extended",
         "m319-lu20-a03-library-json-read-write",
-        "m319-lb02-echarge",
-        "m319-lb02a-efuel",
-
-        # Add more repositories here
     ]
 
-    # Current owner of the repositories
-    current_owner = "BZZ-M319"
+    # Lade GitHub Token aus der Umgebung
+    load_dotenv()
+    github_token = os.getenv('GITHUB_TOKEN')
 
-    # New owner of the repositories
-    new_owner = "templates-python"
+    if not github_token:
+        print("Error: GITHUB_TOKEN not found in environment.")
+        return
 
-    # Transfer the repositories
-    transfer_repos(repos_to_transfer, current_owner, new_owner)
+    # Repositories zu Template-Repositories machen
+    make_repos_templates(org_name, repo_names)
+
+
+if __name__ == '__main__':
+    main()

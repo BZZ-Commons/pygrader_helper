@@ -1,61 +1,65 @@
 import os
 import shutil
 from pathlib import Path
-import subprocess
 from dotenv import load_dotenv
 
+from git_utils import clone_repo, checkout_branch, commit_and_push_changes
 
-def update_requirements_file(repo_path, packages):
+
+def manage_requirements_file(repo_path, packages_to_add=None, packages_to_remove=None):
     """
-    Update the requirements.txt file to include specified packages and versions.
+    Manage the requirements.txt file to add, update, or remove specified packages.
 
     Args:
         repo_path (Path): The path to the repository.
-        packages (dict): A dictionary of packages and their versions to add/update.
-                         e.g., {"pylint": "3.2.6", "requests": "2.25.1"}
+        packages_to_add (dict): A dictionary of packages to add or update with versions.
+                                e.g., {"pylint": "3.2.6", "requests": "2.25.1"}
+        packages_to_remove (list): A list of packages to remove.
+                                e.g., ["unused_package"]
     """
     requirements_path = Path(repo_path) / "requirements.txt"
 
-    # Create the requirements.txt file if it doesn't exist
+    # If the file doesn't exist, create it and add the packages_to_add
     if not requirements_path.exists():
         with open(requirements_path, 'w', encoding='utf-8') as req_file:
-            for pkg, version in packages.items():
-                req_file.write(f"{pkg}=={version}\n")
-    else:
-        with open(requirements_path, 'r', encoding='utf-8') as req_file:
-            lines = req_file.readlines()
+            if packages_to_add:
+                for pkg, version in packages_to_add.items():
+                    req_file.write(f"{pkg}=={version}\n")
+        return
 
-        # Check each package in the current requirements file and update if needed
-        for pkg, version in packages.items():
-            pkg_exists = False
-            for i, line in enumerate(lines):
-                if pkg in line:
-                    pkg_exists = True
-                    # Update the version if it doesn't match
-                    if f"{pkg}==" not in line or line.strip() != f"{pkg}=={version}":
-                        lines[i] = f"{pkg}=={version}\n"
-                    break
+    # Read the existing requirements file
+    with open(requirements_path, 'r', encoding='utf-8') as req_file:
+        lines = req_file.readlines()
 
-            # Add the package if it's not already listed
-            if not pkg_exists:
-                lines.append(f"{pkg}=={version}\n")
+    updated_lines = []
 
-        # Write the updated content back to requirements.txt
-        with open(requirements_path, 'w', encoding='utf-8') as req_file:
-            req_file.writelines(lines)
+    # Check for each package in the current requirements file and update or remove if needed
+    for line in lines:
+        pkg_name = line.split('==')[0].strip()
+
+        # Remove package if it's in the remove list
+        if packages_to_remove and pkg_name in packages_to_remove:
+            continue
+
+        # Update package version if it's in the add/update list
+        if packages_to_add and pkg_name in packages_to_add:
+            updated_lines.append(f"{pkg_name}=={packages_to_add[pkg_name]}\n")
+            packages_to_add.pop(pkg_name)  # Remove from the dict to avoid adding it again later
+        else:
+            updated_lines.append(line)
+
+    # Add any remaining packages that are in packages_to_add
+    if packages_to_add:
+        for pkg, version in packages_to_add.items():
+            updated_lines.append(f"{pkg}=={version}\n")
+
+    # Write the updated content back to requirements.txt
+    with open(requirements_path, 'w', encoding='utf-8') as req_file:
+        req_file.writelines(updated_lines)
 
 
-def clone_repo(org_name, repo_name, github_token):
-    """Clone the GitHub repository using the provided organization name and repository name."""
-    repo_url = f"https://{github_token}@github.com/{org_name}/{repo_name}.git"
-    subprocess.run(["git", "clone", repo_url])
-
-
-def process_repos(org_name, repo_names, packages, github_token):
-    """Process the list of repositories and update their requirements.txt."""
-    # Load GitHub token
-    load_dotenv()
-
+def process_repos(org_name, repo_names, packages_to_add, packages_to_remove, branches, github_token):
+    """Process the list of repositories and update their requirements.txt across multiple branches."""
     for repo_name in repo_names:
         # Clone the repository
         clone_repo(org_name, repo_name, github_token)
@@ -63,15 +67,18 @@ def process_repos(org_name, repo_names, packages, github_token):
         # Change directory to the cloned repository
         os.chdir(repo_name)
 
-        # Update requirements.txt using the new module
-        update_requirements_file(Path(os.getcwd()), packages)
+        # Iterate through the branches
+        for branch in branches:
+            # Checkout the branch
+            checkout_branch(branch)
 
-        # Commit and push changes
-        subprocess.run(["git", "add", "."])
-        subprocess.run(
-            ["git", "commit", "-m", "Updated requirements.txt with specified package versions"]
-        )
-        subprocess.run(["git", "push", "origin", "main"])
+            # Update requirements.txt
+            manage_requirements_file(
+                Path(os.getcwd()), packages_to_add=packages_to_add, packages_to_remove=packages_to_remove
+            )
+
+            # Commit and push changes
+            commit_and_push_changes(branch,f"Updated requirements.txt with specified package versions on {branch} branch")
 
         # Return to the parent directory
         os.chdir('..')
@@ -85,21 +92,22 @@ def process_repos(org_name, repo_names, packages, github_token):
 def main():
     # List of repositories to process
     repo_names = [
-        "m323-ix22-m323-lu01-a01-imperativer-bubblesort-m323-lu01-a01-imperativer-bubblesort",
-        "m323-ix22-m323-lu01-a02-imperativer-ggt-m323-lu01-a02-imperativer-ggt",
-        "m323-ix22-m323-lu01-a03-funktionaler-bubblesort-m323-lu01-a03-funktionaler-bubblesort",
-        "m323-ix22-m323-lu01-a04-funktionaler-ggt-m323-lu01-a04-funktionaler-ggt",
-        "m323-ix22-m323-lu01-a05-sum-m323-lu01-a05-sum",
+        "m323-lu01-a01-imperativer-bubblesort-graphics80",
     ]
 
     # GitHub organization name
     org_name = "m323-ix22"
 
-    # Specify the packages and versions to use
-    packages = {
-        "pylint": "3.2.6",
-        "requests": "2.25.1"  # Example of adding another package
+    # Specify the packages to add or update
+    packages_to_add = {
+        #"pylint": "3.2.6",
     }
+
+    # Specify packages to remove (if any)
+    packages_to_remove = ["hello"]  # "pylint", "requests" Example of removing the added packages
+
+    # Specify branches to process
+    branches = ['main']  # List the branches you want to process
 
     # Load GitHub token from the environment
     load_dotenv()
@@ -110,7 +118,7 @@ def main():
         return
 
     # Process the repositories
-    process_repos(org_name, repo_names, packages, github_token)
+    process_repos(org_name, repo_names, packages_to_add, packages_to_remove, branches, github_token)
 
 
 if __name__ == '__main__':

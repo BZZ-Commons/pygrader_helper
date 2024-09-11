@@ -1,8 +1,9 @@
 import os
 import json
 import shutil
-import subprocess
 from dotenv import load_dotenv
+
+from git_utils import clone_repo, checkout_branch, commit_and_push_changes
 
 
 def read_json(file_path):
@@ -32,24 +33,6 @@ def list_root_python_files(folder_path):
         if file.endswith('.py') and 'test_' not in file and '_test' not in file:
             python_files.append(file)
     return python_files
-
-
-def clone_repo(org_name, repo_name, github_token):
-    """Clone the GitHub repository using the provided organization name and repository name."""
-    repo_url = f"https://{github_token}@github.com/{org_name}/{repo_name}.git"
-    subprocess.run(["git", "clone", repo_url])
-
-
-def checkout_branch(branch_name):
-    """Checkout the specified branch."""
-    subprocess.run(["git", "checkout", branch_name])
-
-
-def commit_and_push_changes(branch_name):
-    """Commit the changes and push to the specified branch."""
-    subprocess.run(["git", "add", "."])
-    subprocess.run(["git", "commit", "-m", f"Update files for {branch_name} branch"])
-    subprocess.run(["git", "push", "origin", branch_name])
 
 
 def process_repository(org_name, repo_name, github_token, template_dir):
@@ -114,7 +97,7 @@ def process_repository(org_name, repo_name, github_token, template_dir):
             shutil.rmtree(classroom_folder)
 
         # Commit and push the changes to the current branch
-        commit_and_push_changes(branch)
+        commit_and_push_changes(branch, f"Update files for {branch} branch" )
 
     # Go back to the parent directory before processing the next repository
     os.chdir('..')
@@ -135,14 +118,8 @@ def main():
 
     # List of repositories to process
     repo_names = [
-        #"m319-lu06-a06-cheese",
-        #"m319-lu04-a00-first",
         #"m319-lb01-primes",
         #"m319-lb01-words",
-        #"m319-lu12-a04-classes",
-        #"m319-lu14-a02-chessclock",
-        #"m319-lu20-a01-library",
-        #"m319-lu20-a03-library-json-read-write",
         #"m319-lb02-echarge",
         #"m319-lb02a-efuel",
     ]
